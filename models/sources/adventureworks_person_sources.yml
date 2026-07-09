@@ -1,0 +1,12 @@
+version: 2
+
+sources:
+  - name: person
+    database: ADVENTURE_WORKS
+    schema: PERSON
+
+    tables:
+      - name: PERSON
+      - name: ADDRESS
+      - name: STATEPROVINCE
+      - name: COUNTRYREGION

@@ -1,0 +1,13 @@
+version: 2
+
+sources:
+  - name: production
+    database: ADVENTURE_WORKS
+    schema: PRODUCTION
+
+    tables:
+      - name: TRANSACTIONHISTORY
+      - name: PRODUCT
+      - name: PRODUCTSUBCATEGORY
+      - name: PRODUCTCATEGORY
+      - name: PRODUCTMODEL

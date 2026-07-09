@@ -1,0 +1,18 @@
+version: 2
+
+sources:
+
+  - name: sales
+    database: ADVENTURE_WORKS
+    schema: SALES
+
+    tables:
+      - name: SALESORDERHEADER
+      - name: SALESORDERDETAIL
+      - name: CUSTOMER
+      - name: SALESPERSON
+      - name: SALESTERRITORY
+      - name: SPECIALOFFER
+      - name: STORE
+      - name: VPERSONDEMOGRAPHICS
+      - name: VSALESPERSON

@@ -1,0 +1,12 @@
+version: 2
+
+sources:
+  - name: purchasing
+    database: ADVENTURE_WORKS
+    schema: PURCHASING
+
+    tables:
+      - name: PURCHASEORDERHEADER
+      - name: PURCHASEORDERDETAIL
+      - name: VENDOR
+      - name: SHIPMETHOD
