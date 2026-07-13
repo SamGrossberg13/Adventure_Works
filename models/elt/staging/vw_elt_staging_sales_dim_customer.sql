@@ -2,9 +2,6 @@ with
     cust as (
         select *
         from {{ ref('vw_stg_sales_customer') }}),
-    store as (
-        select *
-        from {{ ref('vw_stg_sales_store') }}),
 
     final as (
         select
@@ -22,8 +19,6 @@ with
             end as customer_type,
 
         from cust c
-        left join store s
-            on c."StoreID" = s."BusinessEntityID"
     )
 select *
 from final
