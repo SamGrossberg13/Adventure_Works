@@ -1,7 +1,12 @@
 with
     cust as (
         select *
-        from {{ ref('vw_stg_sales_customer') }}),
+        from {{ ref('vw_stg_sales_customer') }}        
+        qualify row_number() over (
+            partition by "CustomerID"
+            order by "CustomerID"
+        ) = 1),
+
 
     final as (
         select

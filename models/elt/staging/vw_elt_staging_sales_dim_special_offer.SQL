@@ -1,7 +1,12 @@
 with
     special_offer as (
         select *
-        from {{ ref('vw_stg_sales_specialoffer') }}),
+        from {{ ref('vw_stg_sales_specialoffer') }}
+        qualify row_number() over (
+            partition by "SpecialOfferID"
+            order by "SpecialOfferID"
+        ) =1),
+
     final as (
         select
             {{ dbt_utils.generate_surrogate_key(['s."SpecialOfferID"']) }}

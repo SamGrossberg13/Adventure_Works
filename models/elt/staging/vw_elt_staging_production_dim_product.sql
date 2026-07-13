@@ -1,22 +1,38 @@
+
 with
+
     prod as (
         select *
         from {{ ref("vw_stg_production_product") }}
-    ),
+        qualify row_number() over (
+            partition by "ProductID"
+            order by "ModifiedDate" desc
+        ) = 1),
     subcat as (
         select *
         from {{ ref("vw_stg_production_productsubcategory") }}
-    ),
+        qualify row_number() over (
+            partition by "ProductSubcategoryID"
+            order by "ModifiedDate" desc
+        ) = 1),
+
     category as (
         select *
         from {{ ref("vw_stg_production_productcategory") }}
-    ),
+        qualify row_number() over (
+            partition by "ProductCategoryID"
+            order by "ModifiedDate" desc
+        ) = 1),
+
     model as (
         select *
         from {{ ref("vw_stg_production_productmodel") }}
-    ),
-    final as (
+        qualify row_number() over (
+            partition by "ProductModelID"
+            order by "ModifiedDate" desc
+        ) = 1),
 
+    final as (
         select
             {{ dbt_utils.generate_surrogate_key(['p."ProductID"']) }}
                 as product_sk,

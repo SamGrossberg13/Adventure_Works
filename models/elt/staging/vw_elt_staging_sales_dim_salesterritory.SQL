@@ -1,9 +1,12 @@
 with
 
     territory as (
-        select *
+        select distinct *
         from {{ ref('vw_stg_sales_salesterritory') }}
-    ),
+        qualify row_number() over (
+               partition by "TerritoryID"
+               order by "TerritoryID"
+            ) = 1),
 
     final as (
         select

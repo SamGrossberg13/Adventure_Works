@@ -1,10 +1,18 @@
 with
     salesperson as (
-        select *
-        from {{ ref('vw_stg_sales_salesperson') }}),
-    vsalesperson as (
-        select *
-        from {{ ref('vw_stg_sales_vsalesperson') }}),
+    select * from {{ ref('vw_stg_sales_salesperson') }}
+    qualify row_number() over (
+        partition by "BusinessEntityID"
+        order by "BusinessEntityID"
+    ) = 1),
+
+vsalesperson as (
+    select * from {{ ref('vw_stg_sales_vsalesperson') }}
+    qualify row_number() over (
+        partition by "BusinessEntityID"
+        order by "BusinessEntityID"
+    ) = 1),
+    
     final as (
         select
             {{ dbt_utils.generate_surrogate_key(['s."BusinessEntityID"']) }}
