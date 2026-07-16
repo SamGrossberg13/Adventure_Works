@@ -5,39 +5,65 @@ with
         from {{ ref('vw_stg_production_transactionhistory') }}
         qualify row_number() over (
             partition by "TransactionID"
-            order by "TransactionID"
-        ) = 1),
-    dim_product as (
+            order by "TransactionID") = 1),
+
+    product as (
         select *
-        from {{ ref('vw_elt_staging_production_dim_product') }}),
-    dim_transaction_date as (
+        from {{ ref('vw_stg_production_product') }}
+        qualify row_number() over (
+            partition by "ProductID"
+            order by "ProductID") = 1),
+
+    product_subcategory as (
         select *
-        from {{ ref('vw_elt_staging_dim_date') }}),
+        from {{ ref('vw_stg_production_productsubcategory') }}
+        qualify row_number() over (
+            partition by "ProductSubcategoryID"
+            order by "ProductSubcategoryID") = 1),
+
     final as (
         select
-            {{ dbt_utils.generate_surrogate_key(['t."TransactionID"']) }} as inventory_transaction_sk,
+            {{ dbt_utils.generate_surrogate_key(['th."TransactionID"']) }} as inventory_transaction_fact_sk,
 
-            p.product_sk as product_sk,
+            {{ dbt_utils.generate_surrogate_key(['cast(th."TransactionDate" as date)']) }} as transaction_date_sk,
 
-            t."TransactionID"::number as transaction_id,
-            t."ReferenceOrderID"::number as reference_order_id,
-            t."ReferenceOrderLineID"::number as reference_order_line_id,
-            td.date_sk as transaction_date_sk,
-            t."TransactionType"::varchar as transaction_type,
-            t."Quantity"::number as quantity,
-            t."ActualCost"::number(18,2) as actual_cost,
+            {{ dbt_utils.generate_surrogate_key(['th."ProductID"']) }} as product_sk,
 
-            'ADVENTURE_WORKS'::varchar
-                as source_system,
-            sysdate()
-                as elt_process_datetime
+            case
+                when p."ProductSubcategoryID" is null then null
+                else {{ dbt_utils.generate_surrogate_key([
+                    'p."ProductSubcategoryID"']) }} end as product_subcategory_sk,
 
-        from transaction_history t
-        left join dim_product p
-            on t."ProductID" = p.product_id_bk
-        left join dim_transaction_date td
-            on cast(t."TransactionDate" as date) = td.calendar_date)
+            case
+                when ps."ProductCategoryID" is null then null
+                else {{ dbt_utils.generate_surrogate_key([
+                    'ps."ProductCategoryID"']) }} end as product_category_sk,
 
+            -- Source identifiers / degenerate dimensions
+            th."TransactionID"::number as transaction_id,
+            th."ReferenceOrderID"::number as reference_order_id,
+            th."ReferenceOrderLineID"::number as reference_order_line_id,
+            concat(
+                th."ReferenceOrderID", '-', th."ReferenceOrderLineID")::varchar as reference_order_line_id_bk,
+            th."TransactionType"::varchar as transaction_type,
+            
+            th."Quantity"::number as transaction_quantity,
+            th."ActualCost"::number(18, 2) as actual_cost,
+            (th."Quantity"* th."ActualCost")::number(18, 2) as transaction_cost_amount,
+
+            -- Metadata
+            th."ModifiedDate"::timestamp as modified_datetime,
+
+            'ADVENTURE_WORKS'::varchar as source_system,
+            sysdate() as elt_process_datetime
+
+        from transaction_history th
+        left join product p
+            on th."ProductID" = p."ProductID"
+        left join product_subcategory ps
+            on p."ProductSubcategoryID" = ps."ProductSubcategoryID"
+
+    )
 
 select *
 from final

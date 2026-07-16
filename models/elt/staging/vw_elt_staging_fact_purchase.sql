@@ -7,6 +7,7 @@ with
             partition by "PurchaseOrderID"
             order by "PurchaseOrderID"
         ) = 1),
+
     purchase_order_detail as (
         select *
         from {{ ref('vw_stg_purchasing_purchaseorderdetail') }}
@@ -14,78 +15,93 @@ with
             partition by "PurchaseOrderID", "PurchaseOrderDetailID"
             order by "PurchaseOrderID", "PurchaseOrderDetailID"
         ) = 1),
-    dim_product as (
+
+    product as (
         select *
-        from {{ ref('vw_elt_staging_production_dim_product') }}),
-    dim_vendor as (
+        from {{ ref('vw_stg_production_product') }}
+        qualify row_number() over (
+            partition by "ProductID"
+            order by "ProductID"
+        ) = 1),
+
+    product_subcategory as (
         select *
-        from {{ ref('vw_elt_staging_purchasing_dim_vendor') }}),
-    dim_ship_method as (
-        select *
-        from {{ ref('vw_elt_staging_purchasing_dim_ship_method') }}),
-    dim_order_date as (
-        select *
-        from {{ ref('vw_elt_staging_dim_date') }}),
-    dim_due_date as (
-        select *
-        from {{ ref('vw_elt_staging_dim_date') }}),
-    dim_ship_date as (
-        select *
-        from {{ ref('vw_elt_staging_dim_date') }}),
+        from {{ ref('vw_stg_production_productsubcategory') }}
+        qualify row_number() over (
+            partition by "ProductSubcategoryID"
+            order by "ProductSubcategoryID"
+        ) = 1),
+
     final as (
         select
-            {{ dbt_utils.generate_surrogate_key(['pod."PurchaseOrderID"','pod."PurchaseOrderDetailID"']) }} as purchase_order_sk,
-            
-            od.date_sk as order_date_sk,
-            dd.date_sk as due_date_sk,
-            sd.date_sk as ship_date_sk,
 
-            p.product_sk as product_sk,
-            v.vendor_sk as vendor_sk,
-            sm.ship_method_sk as ship_method_sk,
+            -- Fact surrogate key: one row per purchase order detail line
+            {{ dbt_utils.generate_surrogate_key([
+                'pod."PurchaseOrderID"',
+                'pod."PurchaseOrderDetailID"']) }} as purchase_order_fact_sk,
 
+            -- Purchase order header dimension key
+            {{ dbt_utils.generate_surrogate_key([
+                'poh."PurchaseOrderID"']) }} as purchase_order_header_sk,
+
+            -- Date dimension keys
+            {{ dbt_utils.generate_surrogate_key([
+                'cast(poh."OrderDate" as date)']) }} as order_date_sk,
+
+            {{ dbt_utils.generate_surrogate_key([
+                'cast(pod."DueDate" as date)']) }} as due_date_sk,
+
+            case
+                when poh."ShipDate" is null then null
+                else {{ dbt_utils.generate_surrogate_key([
+                    'cast(poh."ShipDate" as date)']) }} end as ship_date_sk,
+
+            -- Direct dimension surrogate keys generated from source business keys
+            {{ dbt_utils.generate_surrogate_key(['pod."ProductID"']) }} as product_sk,
+
+            {{ dbt_utils.generate_surrogate_key(['p."ProductSubcategoryID"']) }} as product_subcategory_sk,
+
+            {{ dbt_utils.generate_surrogate_key(['ps."ProductCategoryID"']) }} as product_category_sk,
+
+            {{ dbt_utils.generate_surrogate_key(['poh."VendorID"']) }} as vendor_sk,
+
+            {{ dbt_utils.generate_surrogate_key(['poh."ShipMethodID"']) }} as ship_method_sk,
+
+
+            -- Business/source identifiers for traceability
             poh."PurchaseOrderID"::number as purchase_order_id,
             pod."PurchaseOrderDetailID"::number as purchase_order_detail_id,
-            concat(
-                poh."PurchaseOrderID",
-                '-',
-                pod."PurchaseOrderDetailID"
-            ) as purchase_order_line_id_bk,
 
+            concat(poh."PurchaseOrderID", '-', pod."PurchaseOrderDetailID")::varchar as purchase_order_line_id_bk,
 
             pod."OrderQty"::number as purchase_order_qty,
-            pod."UnitPrice"::number(18,2) as purchase_unit_price,
-            pod."LineTotal"::number(18,2)
-                as purchase_line_total,
+            pod."UnitPrice"::number(18, 2) as purchase_unit_price,
+            pod."LineTotal"::number(18, 2) as purchase_line_total,
             pod."ReceivedQty"::number as received_qty,
             pod."RejectedQty"::number as rejected_qty,
             pod."StockedQty"::number as stocked_qty,
-            poh."SubTotal"::number(18,2) as order_subtotal,
-            poh."TaxAmt"::number(18,2) as tax_amount,
-            poh."Freight"::number(18,2) as freight_amount,
-            poh."TotalDue"::number(18,2) as total_due,
 
+            -- Derived measures
+            (pod."OrderQty"* pod."UnitPrice")::number(18, 2) as gross_purchase_amount,
+            pod."LineTotal"::number(18, 2) as net_purchase_amount,
 
-            'ADVENTURE_WORKS'::varchar
-                as source_system,
-            sysdate()
-                as elt_process_datetime
+            -- Metadata
+            'ADVENTURE_WORKS'::varchar as source_system,
+
+            sysdate() as elt_process_datetime
 
         from purchase_order_detail pod
+
         left join purchase_order_header poh
             on pod."PurchaseOrderID" = poh."PurchaseOrderID"
-        left join dim_product p
-            on pod."ProductID" = p.product_id_bk
-        left join dim_ship_method sm
-            on poh."ShipMethodID" = sm.ship_method_id
-        left join dim_vendor v 
-            on poh."VendorID" = v.business_entity_id
-        left join dim_order_date od
-            on cast(poh."OrderDate" as date) = od.calendar_date
-        left join dim_due_date dd
-            on cast(pod."DueDate" as date) = dd.calendar_date
-        left join dim_ship_date sd
-            on cast(poh."ShipDate" as date) = sd.calendar_date)
+
+        left join product p
+            on pod."ProductID" = p."ProductID"
+
+        left join product_subcategory ps
+            on p."ProductSubcategoryID" = ps."ProductSubcategoryID"
+
+    )
 
 select *
 from final

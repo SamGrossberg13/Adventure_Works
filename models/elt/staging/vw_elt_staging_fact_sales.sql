@@ -32,73 +32,40 @@ with
         select
 
             -- Fact surrogate key: one row per sales order detail line
-            {{ dbt_utils.generate_surrogate_key([
-                'sod."SalesOrderID"',
-                'sod."SalesOrderDetailID"']) }} as sales_fact_sk,
+            {{ dbt_utils.generate_surrogate_key(['sod."SalesOrderID"', 'sod."SalesOrderDetailID"']) }} as sales_fact_sk,
 
             -- Sales order header dimension key
-            {{ dbt_utils.generate_surrogate_key([
-                'soh."SalesOrderID"']) }} as sales_order_header_sk,
+            {{ dbt_utils.generate_surrogate_key(['soh."SalesOrderID"']) }} as sales_order_header_sk,
 
             -- Date dimension keys
-            {{ dbt_utils.generate_surrogate_key([
-                'cast(soh."OrderDate" as date)'
-            ]) }} as order_date_sk,
-
-            {{ dbt_utils.generate_surrogate_key([
-                'cast(soh."DueDate" as date)'
-            ]) }} as due_date_sk,
-
-            case
-                when soh."ShipDate" is null then null
+            {{ dbt_utils.generate_surrogate_key(['cast(soh."OrderDate" as date)']) }} as order_date_sk,
+            {{ dbt_utils.generate_surrogate_key(['cast(soh."DueDate" as date)']) }} as due_date_sk,
+            case when soh."ShipDate" is null then null
                 else {{ dbt_utils.generate_surrogate_key([
-                    'cast(soh."ShipDate" as date)'
-                ]) }}
-            end as ship_date_sk,
+                    'cast(soh."ShipDate" as date)']) }} end as ship_date_sk,
 
             -- Direct dimension surrogate keys generated from source business keys
-            {{ dbt_utils.generate_surrogate_key([
-                'soh."CustomerID"'
-            ]) }} as customer_sk,
+            {{ dbt_utils.generate_surrogate_key(['soh."CustomerID"']) }} as customer_sk,
 
-            {{ dbt_utils.generate_surrogate_key([
-                'sod."ProductID"'
-            ]) }} as product_sk,
+            {{ dbt_utils.generate_surrogate_key(['sod."ProductID"']) }} as product_sk,
 
-            {{ dbt_utils.generate_surrogate_key([
-                'p."ProductSubcategoryID"'
-            ]) }} as product_subcategory_sk,
+            {{ dbt_utils.generate_surrogate_key(['p."ProductSubcategoryID"']) }} as product_subcategory_sk,
 
-            {{ dbt_utils.generate_surrogate_key([
-                'ps."ProductCategoryID"'
-            ]) }} as product_category_sk,
+            {{ dbt_utils.generate_surrogate_key(['ps."ProductCategoryID"']) }} as product_category_sk,
 
-            case
-                when soh."SalesPersonID" is null then null
+            case when soh."SalesPersonID" is null then null
                 else {{ dbt_utils.generate_surrogate_key([
-                    'soh."SalesPersonID"'
-                ]) }}
-            end as salesperson_sk,
+                    'soh."SalesPersonID"']) }} end as salesperson_sk,
 
-            {{ dbt_utils.generate_surrogate_key([
-                'soh."TerritoryID"'
-            ]) }} as territory_sk,
+            {{ dbt_utils.generate_surrogate_key(['soh."TerritoryID"']) }} as territory_sk,
 
-            {{ dbt_utils.generate_surrogate_key([
-                'sod."SpecialOfferID"'
-            ]) }} as special_offer_sk,
+           -- {{ dbt_utils.generate_surrogate_key(['sod."SpecialOfferID"']) }} as special_offer_sk,
 
-            {{ dbt_utils.generate_surrogate_key([
-                'soh."ShipMethodID"'
-            ]) }} as ship_method_sk,
+            {{ dbt_utils.generate_surrogate_key(['soh."ShipMethodID"']) }} as ship_method_sk,
 
-            {{ dbt_utils.generate_surrogate_key([
-                'soh."BillToAddressID"'
-            ]) }} as bill_to_address_sk,
+            {{ dbt_utils.generate_surrogate_key(['soh."BillToAddressID"']) }} as bill_to_address_sk,
 
-            {{ dbt_utils.generate_surrogate_key([
-                'soh."ShipToAddressID"'
-            ]) }} as ship_to_address_sk,
+            {{ dbt_utils.generate_surrogate_key(['soh."ShipToAddressID"']) }} as ship_to_address_sk,
 
             -- Business/source identifiers for traceability
             soh."SalesOrderID"::number as sales_order_id,
@@ -109,21 +76,12 @@ with
                 sod."SalesOrderDetailID"
             )::varchar as sales_order_line_id_bk,
 
-            -- Line-level measures
             sod."OrderQty"::number as order_qty,
             sod."UnitPrice"::number(18, 2) as unit_price,
             sod."UnitPriceDiscount"::number(18, 4) as unit_price_discount,
-
             sod."LineTotal"::number(18, 2) as line_total,
-            (
-                sod."OrderQty"
-                * sod."UnitPrice"
-            )::number(18, 2) as gross_sales_amount,
-            (
-                sod."OrderQty"
-                * sod."UnitPrice"
-                * sod."UnitPriceDiscount"
-            )::number(18, 2) as discount_amount,
+            (sod."OrderQty"* sod."UnitPrice")::number(18, 2) as gross_sales_amount,
+            (sod."OrderQty"* sod."UnitPrice"* sod."UnitPriceDiscount")::number(18, 2) as discount_amount,
             sod."LineTotal"::number(18, 2) as net_sales_amount,
 
             -- Metadata
