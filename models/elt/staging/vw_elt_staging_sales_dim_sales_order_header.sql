@@ -9,7 +9,7 @@ with
 final as (
         select
             {{ dbt_utils.generate_surrogate_key(['"SalesOrderID"']) }}
-                as sales_order_header_id,
+                as sales_order_header_sk,
             "SalesOrderID"::number as sales_order_id_bk,
             "SalesOrderNumber"::varchar as sales_order_number,
             "PurchaseOrderNumber"::varchar as purchase_order_number,
