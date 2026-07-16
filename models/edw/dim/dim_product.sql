@@ -16,11 +16,7 @@ select
     product_style,
     standard_cost,
     list_price,
-
-    product_subcategory_id,
     product_subcategory_name,
-
-    product_category_id,
     product_category_name,
 
     product_model_id,

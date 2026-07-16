@@ -38,6 +38,8 @@ with
                 as product_sk,
             p."ProductID"::number as product_id_bk,
             p."Name"::varchar as product_name,
+            s."Name"::varchar as product_subcategory_name,
+            c."Name"::varchar as product_category_name,
             p."ProductNumber"::varchar as product_number,
             p."MakeFlag"::boolean as make_flag,
             p."FinishedGoodsFlag"::boolean as finished_goods_flag,
@@ -49,12 +51,6 @@ with
             p."Style"::varchar as product_style,
             p."StandardCost"::number(18,2) as standard_cost,
             p."ListPrice"::number(18,2) as list_price,
-
-            s."ProductSubcategoryID"::number as product_subcategory_id,
-            s."Name"::varchar as product_subcategory_name,
-
-            c."ProductCategoryID"::number as product_category_id,
-            c."Name"::varchar as product_category_name,
 
             m."ProductModelID"::number as product_model_id,
             m."Name"::varchar as product_model_name,
