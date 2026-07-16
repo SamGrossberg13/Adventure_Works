@@ -1,221 +1,146 @@
 with
 
     sales_order_header as (
-
         select *
         from {{ ref('vw_stg_sales_salesorderheader') }}
-
         qualify row_number() over (
             partition by "SalesOrderID"
-            order by "SalesOrderID"
-        ) = 1
-
-    ),
-
+            order by "SalesOrderID") = 1),
     sales_order_detail as (
-
         select *
         from {{ ref('vw_stg_sales_salesorderdetail') }}
-
         qualify row_number() over (
             partition by "SalesOrderID", "SalesOrderDetailID"
-            order by "SalesOrderID", "SalesOrderDetailID"
-        ) = 1
-
-    ),
-
-    dim_customer as (
-
+            order by "SalesOrderID", "SalesOrderDetailID") = 1),
+    product as (
         select *
-        from {{ ref('vw_elt_staging_sales_dim_customer') }}
+        from {{ ref('vw_stg_production_product') }}
+        qualify row_number() over (
+            partition by "ProductID"
+            order by "ProductID") = 1),
 
-    ),
-
-    dim_product as (
-
+    product_subcategory as (
         select *
-        from {{ ref('vw_elt_staging_production_dim_product') }}
-
-    ),
-
-    dim_salesperson as (
-
-        select *
-        from {{ ref('vw_elt_staging_sales_dim_salesperson') }}
-
-    ),
-
-    dim_territory as (
-
-        select *
-        from {{ ref('vw_elt_staging_sales_dim_salesterritory') }}
-
-    ),
-
-    dim_special_offer as (
-
-        select *
-        from {{ ref('vw_elt_staging_sales_dim_special_offer') }}
-
-    ),
-
-    dim_ship_method as (
-
-        select *
-        from {{ ref('vw_elt_staging_purchasing_dim_ship_method') }}
-
-    ),
-
-    dim_bill_to_address as (
-
-        select *
-        from {{ ref('vw_elt_staging_person_dim_address') }}
-
-    ),
-
-    dim_ship_to_address as (
-
-        select *
-        from {{ ref('vw_elt_staging_person_dim_address') }}
-
-    ),
-
-    dim_order_date as (
-
-        select *
-        from {{ ref('vw_elt_staging_dim_date') }}
-
-    ),
-
-    dim_due_date as (
-
-        select *
-        from {{ ref('vw_elt_staging_dim_date') }}
-
-    ),
-
-    dim_ship_date as (
-
-        select *
-        from {{ ref('vw_elt_staging_dim_date') }}
-
-    ),
+        from {{ ref('vw_stg_production_productsubcategory') }}
+        qualify row_number() over (
+            partition by "ProductSubcategoryID"
+            order by "ProductSubcategoryID"
+        ) = 1),
 
     final as (
 
         select
 
+            -- Fact surrogate key: one row per sales order detail line
             {{ dbt_utils.generate_surrogate_key([
                 'sod."SalesOrderID"',
-                'sod."SalesOrderDetailID"'
-            ]) }} as sales_fact_sk,
+                'sod."SalesOrderDetailID"']) }} as sales_fact_sk,
 
-            -- Date Keys
-            od.date_sk as order_date_sk,
-            dd.date_sk as due_date_sk,
-            sd.date_sk as ship_date_sk,
+            -- Sales order header dimension key
+            {{ dbt_utils.generate_surrogate_key([
+                'soh."SalesOrderID"']) }} as sales_order_header_sk,
 
-            -- Dimension Keys
-            c.customer_key as customer_key,
-            p.product_sk as product_sk,
-            sp.salesperson_key as salesperson_key,
-            t.territory_key as territory_key,
-            so.special_offer_key as special_offer_key,
-            sm.ship_method_key as ship_method_key,
+            -- Date dimension keys
+            {{ dbt_utils.generate_surrogate_key([
+                'cast(soh."OrderDate" as date)'
+            ]) }} as order_date_sk,
 
-            bta.address_sk as bill_to_address_sk,
-            sta.address_sk as ship_to_address_sk,
+            {{ dbt_utils.generate_surrogate_key([
+                'cast(soh."DueDate" as date)'
+            ]) }} as due_date_sk,
 
-            -- Degenerate Dimensions
+            case
+                when soh."ShipDate" is null then null
+                else {{ dbt_utils.generate_surrogate_key([
+                    'cast(soh."ShipDate" as date)'
+                ]) }}
+            end as ship_date_sk,
+
+            -- Direct dimension surrogate keys generated from source business keys
+            {{ dbt_utils.generate_surrogate_key([
+                'soh."CustomerID"'
+            ]) }} as customer_sk,
+
+            {{ dbt_utils.generate_surrogate_key([
+                'sod."ProductID"'
+            ]) }} as product_sk,
+
+            {{ dbt_utils.generate_surrogate_key([
+                'p."ProductSubcategoryID"'
+            ]) }} as product_subcategory_sk,
+
+            {{ dbt_utils.generate_surrogate_key([
+                'ps."ProductCategoryID"'
+            ]) }} as product_category_sk,
+
+            case
+                when soh."SalesPersonID" is null then null
+                else {{ dbt_utils.generate_surrogate_key([
+                    'soh."SalesPersonID"'
+                ]) }}
+            end as salesperson_sk,
+
+            {{ dbt_utils.generate_surrogate_key([
+                'soh."TerritoryID"'
+            ]) }} as territory_sk,
+
+            {{ dbt_utils.generate_surrogate_key([
+                'sod."SpecialOfferID"'
+            ]) }} as special_offer_sk,
+
+            {{ dbt_utils.generate_surrogate_key([
+                'soh."ShipMethodID"'
+            ]) }} as ship_method_sk,
+
+            {{ dbt_utils.generate_surrogate_key([
+                'soh."BillToAddressID"'
+            ]) }} as bill_to_address_sk,
+
+            {{ dbt_utils.generate_surrogate_key([
+                'soh."ShipToAddressID"'
+            ]) }} as ship_to_address_sk,
+
+            -- Business/source identifiers for traceability
             soh."SalesOrderID"::number as sales_order_id,
             sod."SalesOrderDetailID"::number as sales_order_detail_id,
-
-            soh."SalesOrderNumber"::varchar as sales_order_number,
-            soh."PurchaseOrderNumber"::varchar as purchase_order_number,
-            soh."AccountNumber"::varchar as account_number,
-
             concat(
                 soh."SalesOrderID",
                 '-',
                 sod."SalesOrderDetailID"
-            ) as sales_order_line_id_bk,
+            )::varchar as sales_order_line_id_bk,
 
-            soh."Status"::number as order_status,
-            soh."OnlineOrderFlag"::boolean as online_order_flag,
-
-            soh."CreditCardID"::number as credit_card_id,
-
-            -- Measures
+            -- Line-level measures
             sod."OrderQty"::number as order_qty,
+            sod."UnitPrice"::number(18, 2) as unit_price,
+            sod."UnitPriceDiscount"::number(18, 4) as unit_price_discount,
 
-            sod."UnitPrice"::number(18,2) as unit_price,
-
-            sod."UnitPriceDiscount"::number(18,4)
-                as unit_price_discount,
-
-            sod."LineTotal"::number(18,2)
-                as line_total,
-
-            -- Derived Measures
+            sod."LineTotal"::number(18, 2) as line_total,
             (
                 sod."OrderQty"
                 * sod."UnitPrice"
-            )::number(18,2)
-                as gross_sales_amount,
-
+            )::number(18, 2) as gross_sales_amount,
             (
                 sod."OrderQty"
                 * sod."UnitPrice"
                 * sod."UnitPriceDiscount"
-            )::number(18,2)
-                as discount_amount,
+            )::number(18, 2) as discount_amount,
+            sod."LineTotal"::number(18, 2) as net_sales_amount,
 
-            sod."LineTotal"::number(18,2)
-                as net_sales_amount,
+            -- Metadata
+            'ADVENTURE_WORKS'::varchar as source_system,
 
-            'ADVENTURE_WORKS'::varchar
-                as source_system,
-
-            sysdate()
-                as elt_process_datetime
+            sysdate() as elt_process_datetime
 
         from sales_order_detail sod
 
         left join sales_order_header soh
             on sod."SalesOrderID" = soh."SalesOrderID"
 
-        left join dim_customer c
-            on soh."CustomerID" = c.customer_id
+        left join product p
+            on sod."ProductID" = p."ProductID"
 
-        left join dim_product p
-            on sod."ProductID" = p.product_id_bk
-
-        left join dim_salesperson sp
-            on soh."SalesPersonID" = sp.business_entity_id
-
-        left join dim_territory t
-            on soh."TerritoryID" = t.territory_id
-
-        left join dim_special_offer so
-            on sod."SpecialOfferID" = so.special_offer_id
-
-        left join dim_ship_method sm
-            on soh."ShipMethodID" = sm.ship_method_id
-
-        left join dim_bill_to_address bta
-            on soh."BillToAddressID" = bta.address_id
-
-        left join dim_ship_to_address sta
-            on soh."ShipToAddressID" = sta.address_id
-
-        left join dim_order_date od
-            on cast(soh."OrderDate" as date) = od.calendar_date
-
-        left join dim_due_date dd
-            on cast(soh."DueDate" as date) = dd.calendar_date
-
-        left join dim_ship_date sd
-            on cast(soh."ShipDate" as date) = sd.calendar_date
+        left join product_subcategory ps
+            on p."ProductSubcategoryID" = ps."ProductSubcategoryID"
 
     )
 
