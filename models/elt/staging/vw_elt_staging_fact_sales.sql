@@ -49,13 +49,28 @@ with
 
             {{ dbt_utils.generate_surrogate_key(['sod."ProductID"']) }} as product_sk,
 
-            {{ dbt_utils.generate_surrogate_key(['p."ProductSubcategoryID"']) }} as product_subcategory_sk,
+            case
+                when p."ProductSubcategoryID" is null then
+                    {{ dbt_utils.generate_surrogate_key(["'N/A'"]) }}
+                else
+                    {{ dbt_utils.generate_surrogate_key([
+                        'p."ProductSubcategoryID"'
+                    ]) }}
+            end as product_subcategory_sk,
 
-            {{ dbt_utils.generate_surrogate_key(['ps."ProductCategoryID"']) }} as product_category_sk,
+            case
+                when ps."ProductCategoryID" is null then
+                    {{ dbt_utils.generate_surrogate_key(["'N/A'"]) }}
+                else
+                    {{ dbt_utils.generate_surrogate_key([
+                        'ps."ProductCategoryID"'
+                    ]) }}
+            end as product_category_sk,
 
-            case when soh."SalesPersonID" is null then null
-                else {{ dbt_utils.generate_surrogate_key([
-                    'soh."SalesPersonID"']) }} end as salesperson_sk,
+            case 
+                when soh."SalesPersonID" is null 
+                    then {{ dbt_utils.generate_surrogate_key(["'N/A'"]) }}
+                else {{ dbt_utils.generate_surrogate_key(['soh."SalesPersonID"']) }} end as salesperson_sk,
 
             {{ dbt_utils.generate_surrogate_key(['soh."TerritoryID"']) }} as territory_sk,
 

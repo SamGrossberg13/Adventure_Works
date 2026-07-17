@@ -30,14 +30,22 @@ with
             {{ dbt_utils.generate_surrogate_key(['th."ProductID"']) }} as product_sk,
 
             case
-                when p."ProductSubcategoryID" is null then null
-                else {{ dbt_utils.generate_surrogate_key([
-                    'p."ProductSubcategoryID"']) }} end as product_subcategory_sk,
+                when p."ProductSubcategoryID" is null then
+                    {{ dbt_utils.generate_surrogate_key(["'N/A'"]) }}
+                else
+                    {{ dbt_utils.generate_surrogate_key([
+                        'p."ProductSubcategoryID"'
+                    ]) }}
+            end as product_subcategory_sk,
 
             case
-                when ps."ProductCategoryID" is null then null
-                else {{ dbt_utils.generate_surrogate_key([
-                    'ps."ProductCategoryID"']) }} end as product_category_sk,
+                when ps."ProductCategoryID" is null then
+                    {{ dbt_utils.generate_surrogate_key(["'N/A'"]) }}
+                else
+                    {{ dbt_utils.generate_surrogate_key([
+                        'ps."ProductCategoryID"'
+                    ]) }}
+            end as product_category_sk,
 
             -- Source identifiers / degenerate dimensions
             th."TransactionID"::number as transaction_id,

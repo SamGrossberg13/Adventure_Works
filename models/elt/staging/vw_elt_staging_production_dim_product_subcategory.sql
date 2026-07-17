@@ -21,3 +21,14 @@ with
 
 select *
 from final
+
+union all
+
+select
+
+    {{ dbt_utils.generate_surrogate_key(["'N/A'"]) }}
+        as product_subcategory_sk,
+
+    null as product_subcategory_id_bk,
+
+    'N/A' as product_subcategory_name

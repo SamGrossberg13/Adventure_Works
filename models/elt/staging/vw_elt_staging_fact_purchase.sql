@@ -59,9 +59,23 @@ with
             -- Direct dimension surrogate keys generated from source business keys
             {{ dbt_utils.generate_surrogate_key(['pod."ProductID"']) }} as product_sk,
 
-            {{ dbt_utils.generate_surrogate_key(['p."ProductSubcategoryID"']) }} as product_subcategory_sk,
+            case
+                when p."ProductSubcategoryID" is null then
+                    {{ dbt_utils.generate_surrogate_key(["'N/A'"]) }}
+                else
+                    {{ dbt_utils.generate_surrogate_key([
+                        'p."ProductSubcategoryID"'
+                    ]) }}
+            end as product_subcategory_sk,
 
-            {{ dbt_utils.generate_surrogate_key(['ps."ProductCategoryID"']) }} as product_category_sk,
+            case
+                when ps."ProductCategoryID" is null then
+                    {{ dbt_utils.generate_surrogate_key(["'N/A'"]) }}
+                else
+                    {{ dbt_utils.generate_surrogate_key([
+                        'ps."ProductCategoryID"'
+                    ]) }}
+            end as product_category_sk,
 
             {{ dbt_utils.generate_surrogate_key(['poh."VendorID"']) }} as vendor_sk,
 
