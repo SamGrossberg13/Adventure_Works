@@ -25,7 +25,8 @@ with
         select
             {{ dbt_utils.generate_surrogate_key(['th."TransactionID"']) }} as inventory_transaction_fact_sk,
 
-            {{ dbt_utils.generate_surrogate_key(['cast(th."TransactionDate" as date)']) }} as transaction_date_sk,
+            {{ dbt_utils.generate_surrogate_key([
+                "to_char(cast(th.\"TransactionDate\" as date),'YYYY-MM-DD')"]) }} as transaction_date_sk,
 
             {{ dbt_utils.generate_surrogate_key(['th."ProductID"']) }} as product_sk,
 

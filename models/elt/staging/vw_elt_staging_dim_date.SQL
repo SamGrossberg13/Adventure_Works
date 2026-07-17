@@ -8,11 +8,13 @@ with
             ) as calendar_date
 
         from table(generator(rowcount => 8000))),
-    final as (
+    final as (    
         select
-            {{ dbt_utils.generate_surrogate_key(['calendar_date']) }}
-                as date_sk,
             calendar_date,
+            to_char(calendar_date,'YYYY-MM-DD')
+                as date_key_text,
+            {{ dbt_utils.generate_surrogate_key([
+                "to_char(calendar_date,'YYYY-MM-DD')"]) }} as date_sk,
             day(calendar_date) as day_number,
             dayname(calendar_date) as day_name,
             week(calendar_date) as week_number,

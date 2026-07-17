@@ -38,11 +38,12 @@ with
             {{ dbt_utils.generate_surrogate_key(['soh."SalesOrderID"']) }} as sales_order_header_sk,
 
             -- Date dimension keys
-            {{ dbt_utils.generate_surrogate_key(['cast(soh."OrderDate" as date)']) }} as order_date_sk,
-            {{ dbt_utils.generate_surrogate_key(['cast(soh."DueDate" as date)']) }} as due_date_sk,
+            {{ dbt_utils.generate_surrogate_key([
+                "to_char(cast(soh.\"OrderDate\" as date),'YYYY-MM-DD')"]) }} as order_date_sk,
+            {{ dbt_utils.generate_surrogate_key(["to_char(cast(soh.\"DueDate\" as date),'YYYY-MM-DD')"]) }} as due_date_sk,
             case when soh."ShipDate" is null then null
                 else {{ dbt_utils.generate_surrogate_key([
-                    'cast(soh."ShipDate" as date)']) }} end as ship_date_sk,
+                    "to_char(cast(soh.\"ShipDate\" as date),'YYYY-MM-DD')"]) }} end as ship_date_sk,
 
             -- Direct dimension surrogate keys generated from source business keys
             {{ dbt_utils.generate_surrogate_key(['soh."CustomerID"']) }} as customer_sk,
